@@ -13,7 +13,7 @@ class CNN(nn.Module):
 
 class FC(nn.Module):
 
-	def __init__(self, in_dim, out_dim, h_dim):
+	def __init__(self, in_dim, out_dim, h_dim=[4]):
 		super(FC, self).__init__()
 		assert isinstance(h_dim, list) and len(h_dim) >= 1
 		self.in_dim = in_dim
@@ -27,6 +27,7 @@ class FC(nn.Module):
 
 	def forward(self, x):
 		activ = F.relu
+		activ = lambda x: x
 		h = activ(self.in2h(x))
 		for layer in self.h_layers:
 			h = activ(layer(h))

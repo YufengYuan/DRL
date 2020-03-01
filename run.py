@@ -23,7 +23,7 @@ if __name__ == '__main__':
 	print(f"{args.alg}_{args.env}_{args.seed}")
 	if args.alg == 'PPO':
 		from ppo import PPORunner
-		runner = PPORunner(args.env, args.total_timesteps, seed=args.seed, device='cpu')
+		runner = PPORunner('FC', args.env, args.total_timesteps, seed=args.seed, device='cpu')
 	else:
 		runner = None
 		raise NotImplementedError

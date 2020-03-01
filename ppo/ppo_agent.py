@@ -11,8 +11,7 @@ class PPOAgent:
 
 	def __init__(self,
 	             model,
-	             lr=3e-4,
-	             minibatch_size=256,
+	             num_minibatch=32,
 	             clip_range=0.2,
 	             gamma=0.99,
 	             lam=0.95,
@@ -24,8 +23,7 @@ class PPOAgent:
 				):
 
 		self.model = model
-		self.lr = lr
-		self.minibatch_size = minibatch_size
+		self.num_minibatch = num_minibatch
 		self.clip_range = clip_range
 		self.gamma = gamma
 		self.lam = lam
@@ -34,19 +32,18 @@ class PPOAgent:
 		self.vf_coef = vf_coef
 		self.ent_coef = ent_coef
 		self.max_grad_norm = max_grad_norm
-		self.optimizer = Adam(self.model.parameters(), lr=self.lr)
 
 	def act(self, obs):
 		return self.model(obs)
 
 	def get_value(self, obs):
-		return self.model.critic(obs)
+		return self.model.value(obs).data.cpu().numpy()
 
 	def get_pi(self, obs):
-		return self.model.pi(obs)
+		return self.model.pi(obs).data.cpu().numpy()
 
-	def get_logprob(self, obs, action):
-		return self.model.log_prob(obs, action)
+	def get_logprob(self, obs, act):
+		return self.model.log_prob(obs, act).data.cpu().numpy()
 
 	def train(self, batch):
 		mean_policy_loss, mean_value_loss, mean_entropy_loss = 0, 0, 0
@@ -61,69 +58,61 @@ class PPOAgent:
 				advs /= advs.std()
 		idxes = np.arange(batch_size)
 		# TODO: early stop when the approximate KL divergence > 0.01
+		minibatch_size = batch_size // self.num_minibatch
 		for i in range(self.n_epochs):
 			np.random.shuffle(idxes)
-			for start in range(0, batch_size, self.minibatch_size):
-				end = start + self.minibatch_size
+			for start in range(0, batch_size, minibatch_size):
+				end = start + minibatch_size
 				idx = idxes[start : end]
 				# Compute value loss with mean square error
-				cur_values = self.get_value(obses[idx])
+				cur_values = self.model.value(obses[idx])
 				value_loss = torch.mean((returns[idx] - cur_values) ** 2)
-				#xx = (returns[idx] - cur_values)**2
-				#print(returns[idx].shape, cur_values.shape)
 				# Compute policy loss with clipped objective
-				log_pi = self.get_logprob(obses[idx], actions[idx])
+				log_pi = self.model.log_prob(obses[idx], actions[idx])
 				grad_pi = torch.exp(log_pi - logprobs[idx])
-				#for x, y in zip(log_pi, logprobs[idx]):
-				#	print(x, y)
 				# TODO: check if this is correct
 				policy_loss = -grad_pi * advs[idx]
 				policy_loss_clipped = -torch.clamp(grad_pi, 1 - self.clip_range, 1 + self.clip_range) * advs[idx]
 				policy_loss = torch.mean(torch.max(policy_loss, policy_loss_clipped))
 				# Compute entropy loss
-				#print(policy_loss)
 				# TODO: optimize implementation for entropy loss
 				entropy_loss = -torch.mean(self.model.pi(obses[idx]).entropy())
 				# Compute total loss
 				loss = policy_loss + self.vf_coef * value_loss# + self.ent_coef * entropy_loss
 				clip_num = torch.sum(grad_pi < 1 - self.clip_range) + torch.sum(grad_pi > 1 + self.clip_range)
-				clip_frac += clip_num.item() / self.minibatch_size
+				clip_frac += clip_num.item() / minibatch_size
 				v += explained_variance(cur_values.cpu().data.numpy().flatten(), returns[idx].data.cpu().numpy().flatten())
 				mean_policy_loss += policy_loss.item()
 				mean_value_loss += value_loss.item()
 				mean_entropy_loss += entropy_loss.item()
-				self.optimizer.zero_grad()
+				self.model.optimizer.zero_grad()
 				loss.backward()
-				#print(self.model.actor.h2out.weight)
 				if self.max_grad_norm > 0:
 					torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
-				#print('Actor')
-				#for param in self.model.actor.parameters():
-				#	print(torch.mean(param.grad))
-				#print('Critic')
-				#for param in self.model.critic.parameters():
-				#	print(torch.mean(param.grad))
+				self.model.optimizer.step()
+				# TODO: use logger to record the data here
 
-				self.optimizer.step()
-		return {'Policy Loss': (mean_policy_loss/int(batch_size/self.minibatch_size)/self.n_epochs),
-		        'Value Loss': (mean_value_loss/int(batch_size/self.minibatch_size)/self.n_epochs),
-		        'Entropy Loss': (mean_entropy_loss/int(batch_size/self.minibatch_size)/self.n_epochs),
-			    'Clip Frac': (clip_frac/int(batch_size/self.minibatch_size)/self.n_epochs),
-		        'Explained V': (v /int(batch_size/self.minibatch_size)/self.n_epochs)
+		return {'Policy Loss': (mean_policy_loss/int(batch_size/minibatch_size)/self.n_epochs),
+		        'Value Loss': (mean_value_loss/int(batch_size/minibatch_size)/self.n_epochs),
+		        'Entropy Loss': (mean_entropy_loss/int(batch_size/minibatch_size)/self.n_epochs),
+			    'Clip Frac': (clip_frac/int(batch_size/minibatch_size)/self.n_epochs),
+		        'Explained V': (v /int(batch_size/minibatch_size)/self.n_epochs)
 		        }
 
-	def compute_return(self, rewards, values, dones, last_value, last_done):
+	def compute_return(self, rewards, values, dones, last_value):
+		#last_value = self.get_value(torch.tensor(last_obs, dtype=torch.float32, device=self.device))
 		advs = np.zeros_like(rewards)
 		batch_size = len(advs)
 		lastgaelam = 0
 		for t in reversed(range(batch_size)):
 			if t == batch_size - 1:
-				nextnonterminal = 1.0 - last_done
 				nextvalues = last_value
 			else:
-				nextnonterminal = 1.0 - dones[t + 1]
 				nextvalues = values[t + 1]
+			nextnonterminal = 1.0 - dones[t]
 			delta = rewards[t] + self.gamma * nextvalues * nextnonterminal - values[t]
 			advs[t] = lastgaelam = delta + self.gamma * self.lam * nextnonterminal * lastgaelam
 		return values + advs
+
+
 

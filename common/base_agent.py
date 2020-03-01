@@ -2,9 +2,8 @@
 
 class BaseAgent:
 
-	def __init__(self, model, lr):
+	def __init__(self, model):
 		self.model = model
-		self.lr = lr
 
 	def act(self, *args, **kwargs):
 		raise NotImplementedError
@@ -20,3 +19,5 @@ class BaseAgent:
 
 	def get_logprob(self, *args, **kwargs):
 		raise NotImplementedError
+
+

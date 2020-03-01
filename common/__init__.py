@@ -1,5 +1,7 @@
-from common.replay_buffer import ReplayBuffer
+from common.batch_buffer import BatchBuffer
 from common.base_agent import BaseAgent
 from common.base_runner import BaseRunner
-from common.base_model import FC, CNN, BaseModel
+from common.base_model import BaseModel
+from common.networks import FC, CNN
+
 #from common.model import ActorCritic

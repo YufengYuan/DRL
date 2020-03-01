@@ -1,10 +1,10 @@
 import gym
-from common import ReplayBuffer
+from common import BatchBuffer
 from ppo import PPOAgent, PPOModel
 from tqdm import tqdm
 import torch
 import numpy as np
-from common import BaseRunner
+from common import BaseRunner, FC
 from baselines.common import explained_variance
 from baselines.common.vec_env import SubprocVecEnv
 
@@ -12,6 +12,7 @@ try:
 	import pybullet_envs
 except ImportError:
 	print('PyBullet environments not found!')
+
 '''
 def learn(*, network, env, total_timesteps, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0, lr=3e-4,
             vf_coef=0.5,  max_grad_norm=0.5, gamma=0.99, lam=0.95,
@@ -21,59 +22,65 @@ def learn(*, network, env, total_timesteps, eval_env = None, seed=None, nsteps=2
 
 class PPORunner(BaseRunner):
 
-	def __init__(self, env_name, total_timesteps, lr=3e-4, batch_size=2048, minibatch_size=64, gamma=0.99,
+	def __init__(self, model_name, env_name, total_timesteps, lr=3e-4, batch_size=2048, num_minibatch=32, gamma=0.99,
 	             lam=0.95, vf_coef=1, ent_coef=0, clip_range=0.2, n_epochs=10, seed=0, max_grad_norm=0,
-			     load_path=None, model_name=None, log_interval=10, save_interval=10, device=None,
+			     load_path=None, log_interval=10, save_interval=10, device=None,
 			     **network_kwargs):
 
-		super(PPORunner, self).__init__(env_name, 'PPO', seed)
-
-		if device is None:
-			self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-		else:
-			self.device = torch.device(device)
-
 		# TODO: support gym vectorized environments
-		env = gym.make(env_name)
-		# set the random seed on all environments
-		env.seed(seed)
-		np.random.seed(seed)
-		random_state = np.random.get_state()
-		torch_seed = np.random.randint(1, 2 ** 31 - 1)
-		torch.manual_seed(torch_seed)
-		torch.cuda.manual_seed_all(torch_seed)
-		#torch.manual_seed(seed)
-		self.model = PPOModel(env.observation_space, env.action_space, device=self.device, **network_kwargs)
-		self.replay_buffer = ReplayBuffer(batch_size, batch_size, env.observation_space, env.action_space, device=device)
-		self.agent = PPOAgent(self.model, lr, minibatch_size, clip_range, gamma, lam, n_epochs, True,
+		super(PPORunner, self).__init__(env_name, 'PPO', seed, device)
+
+		# TODO: should be able to assign specific model to use
+		model_name = FC
+		model = PPOModel(model_name,
+		                 lr,
+		                 self.env.observation_space,
+		                 self.env.action_space,
+		                 device=self.device,
+		                 **network_kwargs)
+
+		self.agent = PPOAgent(model, num_minibatch, clip_range, gamma, lam, n_epochs, True,
 		                      vf_coef, ent_coef, max_grad_norm)
+
+		self.batch_buffer = BatchBuffer(batch_size,
+		                                 self.env.observation_space,
+		                                 self.env.action_space,
+		                                 device=self.device)
+
 		self.total_timesteps = total_timesteps
-		self.env = env
 		self.batch_size = batch_size
+		self.model = model
+
 		if load_path is not None:
-			PPOModel.load(load_path)
+			self.load(load_path)
+
 		self.log_interval = log_interval
 		self.save_interval = save_interval
 		self.model_name = model_name
 
 	def run(self):
 		obs = self.env.reset()
-		done = False
+		#done = False
 		ep_return = 0
 		ep_length = 0
 		for i in tqdm(range(1, self.total_timesteps+1)):
 			action, log_prob, value = self.agent.act(torch.tensor(obs, dtype=torch.float32, device=self.device))
-			next_obs, reward, next_done, _ = self.env.step(action)
+			last_obs, reward, done, _ = self.env.step(action)
 			ep_return += reward
 			ep_length += 1
-			self.replay_buffer.add(obs, action, log_prob, reward, done, value)
-			obs = next_obs
-			done = next_done
+			self.batch_buffer.add(obs, action, log_prob, reward, done, value)
+			obs = last_obs
+			#done = next_done
 			if i % self.batch_size == 0:
-				next_value = self.agent.get_value(torch.tensor(next_obs, dtype=torch.float32, device=self.device)).data.cpu().numpy()
-				self.replay_buffer.compute_return(next_value, next_done, 0.99, 0.95)
-				batch = self.replay_buffer.get_batch()
+				last_value = self.agent.get_value(torch.tensor(last_obs, dtype=torch.float32, device=self.device))
+				#self.batch_buffer.compute_return(next_value, next_done, 0.99, 0.95)
+				self.batch_buffer.returns[:] = self.agent.compute_return(self.batch_buffer.rewards,
+				                                                         self.batch_buffer.values,
+				                                                         self.batch_buffer.dones,
+				                                                         last_value)
+				batch = self.batch_buffer.get_batch()
 				loss_info = self.agent.train(batch)
+
 				# TODO: use logger to log the information needed
 				for key, value in loss_info.items():
 					print(key + ':' + str(value))
@@ -84,12 +91,16 @@ class PPORunner(BaseRunner):
 				self.ep_returns.append(ep_return)
 				self.ep_lengths.append(ep_length)
 				ep_return, ep_length = 0, 0
-			if i % int(self.batch_size * self.save_interval) == 0:
-				self.record()
-		self.record()
-		if self.model_name is not None:
-			self.model.save(self.model_name)
+		self.save_returns()
+		self.save_model()
 
+	def save_model(self):
+		torch.save(self.model.state_dict(), 'saved_models/' + self.file_name + '_model')
+		torch.save(self.model.optimizer.state_dict(), 'saved__models/' + self.file_name + '_optimizer')
+
+	def load_model(self, filename):
+		self.model.load_state_dict(torch.load('saved_models/' + filename + '_model'))
+		self.model.optimizer.load_state_dict(torch.load('saved_models/' + filename + '_optimizer'))
 
 
 if __name__ == '__main__':
