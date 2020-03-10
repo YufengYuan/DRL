@@ -8,6 +8,7 @@ import envs
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
+	parser.add_argument("--network", default='mlp')
 	parser.add_argument("--alg", default="PPO")  # Policy name (TD3, DDPG or OurDDPG)
 	parser.add_argument("--env", default="Hopper-v2")  # OpenAI gym environment name
 	parser.add_argument("--seed", default=0, type=int)  # Sets Gym, PyTorch and Numpy seeds
@@ -17,15 +18,19 @@ if __name__ == '__main__':
 	parser.add_argument("--batch_size", default=256, type=int)  # Batch size for both actor and critic
 	parser.add_argument("--save_model", action="store_true")  # Save model and optimizer parameters
 	parser.add_argument("--load_model", default="")  # Model load file name, "" doesn't load, "default" uses file_name
+	parser.add_argument("--device", default="cpu")  # Specify the device for training
 	args = parser.parse_args()
 
 	file_name = f"{args.alg}_{args.env}_{args.seed}"
 	print(f"{args.alg}_{args.env}_{args.seed}")
 	if args.alg == 'PPO':
-		from ppo import PPORunner
-		runner = PPORunner('FC', args.env, args.total_timesteps, seed=args.seed, device='cpu')
+		from ppo import PPORunner as Runner
+	elif args.alg == 'CNN_PPO':
+		from cnn_ppo.ppo_runner import PPORunner as Runner
 	else:
 		runner = None
 		raise NotImplementedError
 
+	runner = Runner(args.network, args.env, args.total_timesteps, seed=args.seed, device=args.device)
 	runner.run()
+

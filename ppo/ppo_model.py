@@ -5,7 +5,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.distributions import Categorical, MultivariateNormal
 from common import BaseModel, FC, CNN
-from torch.optim import Adam
+from torch.optim import Adam, SGD
 
 def net_init(net, orth=1, w_fac=0.1, b_fac=0.0):
 	if orth:
@@ -32,7 +32,7 @@ class PPOModel(BaseModel, nn.Module):
 		super(PPOModel, self).__init__(obs_space, act_space)
 		self.actor = network(self.obs_dim, self.act_dim, **network_kwargs)
 		self.critic = network(self.obs_dim, 1, **network_kwargs)
-		self.optimizer = Adam(self.parameters(), lr=lr)
+		self.optimizer = Adam(self.parameters(), lr)#Adam(self.parameters(), lr=lr)
 		self.to(device)
 
 	def value(self, x):

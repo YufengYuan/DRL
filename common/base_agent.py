@@ -1,9 +1,11 @@
 
+#from common.logger import EpochLogger
 
 class BaseAgent:
 
-	def __init__(self, model):
-		self.model = model
+	def __init__(self):
+		#self.logger = EpochLogger()
+		pass
 
 	def act(self, *args, **kwargs):
 		raise NotImplementedError
