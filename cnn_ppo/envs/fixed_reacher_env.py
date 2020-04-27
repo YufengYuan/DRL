@@ -12,6 +12,7 @@ class FixedReacher(Reacher):
         state[4:7] = np.array([np.cos(theta), np.sin(theta), self.theta_dot])
         #state[:2] = 0
         #state[2:4] = 0
+        #state[:4] += np.random.randn(4) * 0.1
         return state
 
 

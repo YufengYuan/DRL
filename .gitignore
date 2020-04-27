@@ -6,4 +6,6 @@ test.py
 saved_models/
 pre_trained_cnn
 *.sh
+plot_rl_project.py
+archived/
 

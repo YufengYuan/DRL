@@ -24,7 +24,7 @@ class VisualReacher(gym.core.Wrapper):
 		self._render_height = 480
 		self._render_width = 480
 		self.sampling_interval = sampling_interval
-		self.observation_space = gym.spaces.Box(low=-float('inf'), high=float('inf'), shape=(5,))
+		self.observation_space = gym.spaces.Box(low=-float('inf'), high=float('inf'), shape=(7,))
 		self.reset()
 
 	def step(self, action):
@@ -35,9 +35,12 @@ class VisualReacher(gym.core.Wrapper):
 		#self.image = self.render(mode='rgb_array')
 		self.image = self.capture_image()
 		self.process_image()
-		info['target'] = obs[2:4]
+		info['target'] = obs[:2]
 		info['image'] = self.image
-		return obs[4:], reward, done, info
+		tx, ty = obs[:2]
+		obs[2] += tx
+		obs[3] += ty
+		return obs[2:], reward, done, info
 
 	def reset(self, **kwargs):
 		"""
@@ -49,7 +52,10 @@ class VisualReacher(gym.core.Wrapper):
 		self.process_image()
 		if not hasattr(self, 'visual_space'):
 			self.visual_space = gym.spaces.Box(low=-1., high=1., shape=self.image.shape[:2], dtype=np.float32)
-		return obs[4:]
+		tx, ty = obs[:2]
+		obs[2] += tx
+		obs[3] += ty
+		return obs[2:]
 
 	def setup_camera(self):
 		# figure out the position of current camera and fix its position at center
