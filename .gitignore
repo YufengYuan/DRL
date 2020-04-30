@@ -1,6 +1,7 @@
 .idea
 __pycache__/
 results/*
+models/*
 *.npy
 test.py
 saved_models/

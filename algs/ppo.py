@@ -1,23 +1,31 @@
-import sys
-sys.path.append('../')
-
-
 import torch
-from torch.distributions import Normal, MultivariateNormal
 from common.models import StochasticActor, ValueCritic
 from torch import nn
+import gym
 from torch.optim import Adam
 import numpy as np
+from algs.base_agent import BaseAgent
+from common import BatchBuffer
+import copy
 
 
-class PPO:
+class PPO(BaseAgent):
 
-	def __init__(self, obs_dim, act_dim, lr=3e-4, batch_size=2048, num_minibatch=32, gamma=0.99,
+	def __init__(self, env, lr=3e-4, batch_size=2048, num_minibatch=32, gamma=0.99,
 	             lam=0.95, vf_coef=1, ent_coef=0, clip_range=0.2, n_epochs=10, max_grad_norm=10,
-			     load_path=None, save_model=False, device=None, **network_kwargs):
+			     device=None, **network_kwargs):
 
-		self.obs_dim = obs_dim
-		self.act_dim = act_dim
+		super(PPO, self).__init__(env, device)
+
+
+		self.actor = StochasticActor(self.obs_dim, self.act_dim).to(self.device)
+		self.actor_optimizer = Adam(self.actor.parameters(), lr)
+
+		self.critic = ValueCritic(self.obs_dim).to(self.device)
+		self.critic_optimizer = Adam(self.critic.parameters(), lr)
+
+		self.batch_buffer = BatchBuffer(batch_size, self.obs_dim, self.act_dim, self.device)
+
 		self.gamma = gamma
 		self.lam = lam
 		self.vf_coef = vf_coef
@@ -27,27 +35,10 @@ class PPO:
 		self.clip_range = clip_range
 		self.max_grad_norm = max_grad_norm
 		self.batch_size = batch_size
-		if device is None:
-			self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-		else:
-			self.device = torch.device(device)
 
-		self.actor = StochasticActor(obs_dim, act_dim).to(self.device)
-		self.actor_optimizer = Adam(self.actor.parameters(), lr)
-
-		self.critic = ValueCritic(obs_dim).to(self.device)
-		self.critic_optimizer = Adam(self.critic.parameters(), lr)
-
-		self.ep_returns = []
-		self.ep_lengths = []
 
 	def train(self, obses, actions, logprobs, returns, values):
 
-		obses = torch.tensor(obses, dtype=torch.float32, device=self.device)
-		actions = torch.tensor(actions, dtype=torch.float32, device=self.device)
-		logprobs = torch.tensor(logprobs, dtype=torch.float32, device=self.device)
-		returns = torch.tensor(returns, dtype=torch.float32, device=self.device)
-		values = torch.tensor(values, dtype=torch.float32, device=self.device)
 		batch_size = len(returns)
 		advs = returns - values
 
@@ -105,54 +96,35 @@ class PPO:
 			advs[t] = lastgaelam = delta + self.gamma * self.lam * nextnonterminal * lastgaelam
 		return advs + values
 
+	def act(self, obs):
+		obs = torch.tensor(obs, dtype=torch.float32, device=self.device)
+		return self.actor.act(obs)[0]
 
-	def run(self, env, total_timesteps):
-		obs = env.reset()
-		#done = False
-		ep_return = 0
-		ep_length = 0
+	def step(self, t):
 
-		obs_batch = np.zeros([self.batch_size, self.obs_dim], dtype=np.float32)
-		action_batch = np.zeros([self.batch_size, self.act_dim], dtype=np.float32)
-		logprob_batch = np.zeros([self.batch_size, 1], dtype=np.float32)
-		reward_batch = np.zeros([self.batch_size, 1], dtype=np.float32)
-		done_batch = np.zeros([self.batch_size, 1], dtype=np.int)
-		#return_batch = np.zeros([self.batch_size, 1], dtype=np.float32)
-		value_batch = np.zeros([self.batch_size, 1], dtype=np.float32)
+		self.episode_timesteps += 1
 
-		for i in range(1, total_timesteps + 1):
-			action, logprob = self.actor.act(torch.tensor(obs, dtype=torch.float32, device=self.device))
-			value = self.critic.value(torch.tensor(obs, dtype=torch.float32, device=self.device))
-			last_obs, reward, done, _ = env.step(action)
+		action, logprob = self.actor.act(torch.tensor(self.obs, dtype=torch.float32, device=self.device))
+		value = self.critic.value(torch.tensor(self.obs, dtype=torch.float32, device=self.device))
+		last_obs, reward, done, _ = self.env.step(action)
 
-			ep_return += reward
-			ep_length += 1
+		self.batch_buffer.add(copy.deepcopy(self.obs), action, logprob, reward, done, value)
 
-			idx = i % self.batch_size
-			obs_batch[idx] = obs
-			action_batch[idx] = action
-			logprob_batch[idx] = logprob
-			reward_batch[idx] = reward
-			done_batch[idx] = done
-			value_batch[idx] = value
+		self.obs = last_obs
+		self.episode_reward += reward
+		# done = next_done
+		if t % self.batch_size == 0:
+			last_value = self.critic.value(torch.tensor(last_obs, dtype=torch.float32, device=self.device))
+			# self.batch_buffer.compute_return(next_value, next_done, 0.99, 0.95)
+			#return_batch = self.compute_return(reward_batch, value_batch, done_batch, last_value)
+			self.batch_buffer.compute_return(last_value, self.gamma, self.lam)
 
-			obs = last_obs
-			# done = next_done
-			if i % self.batch_size == 0:
-				last_value = self.critic.value(torch.tensor(last_obs, dtype=torch.float32, device=self.device))
-				# self.batch_buffer.compute_return(next_value, next_done, 0.99, 0.95)
-				return_batch = self.compute_return(reward_batch, value_batch, done_batch, last_value)
+			#batch = self.batch_buffer.get_batch()
+			batch = self.batch_buffer.get_batch()
+			self.train(*batch)
 
-				#batch = self.batch_buffer.get_batch()
-				loss_info = self.train(obs_batch, action_batch, logprob_batch, return_batch, value_batch)
-
-			if done:
-				obs = env.reset()
-				self.ep_returns.append(ep_return)
-				self.ep_lengths.append(ep_length)
-				ep_return, ep_length = 0, 0
-		return self.ep_returns#, self.ep_lengths
-
+		if done:
+			self.episode_end_handle(t)
 
 if __name__ == '__main__':
 	import gym
