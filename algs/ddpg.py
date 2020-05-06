@@ -3,13 +3,12 @@ import numpy as np
 import torch
 from common import DeterministicActor, QvalueCritic, ReplayBuffer
 import torch.nn.functional as F
-import gym
 from algs.base_agent import BaseAgent
 
 
 class DDPG(BaseAgent):
 	def __init__(self, env, lr=3e-4, gamma=0.99, tau=0.005, buffer_size=int(1e6),
-	             start_timesteps=5000, expl_noise=0.1, eval_freq=5000, batch_size=256,
+	             start_timesteps=5000, expl_noise=0.1, batch_size=256,
 				 device=None):
 
 		super(DDPG, self).__init__(env, device)
@@ -30,19 +29,18 @@ class DDPG(BaseAgent):
 		self.lr = lr
 		self.gamma = gamma
 		self.tau = tau
-		self.eval_freq = eval_freq
 
 	def act(self, obs):
 		obs = torch.tensor(obs, dtype=torch.float32, device=self.device)
 		return self.actor(obs).cpu().data.numpy().flatten()
 
-	def train(self, state, action, next_state, reward, done):
+	def train(self, obs, action, next_obs, reward, done):
 		# Compute the target Q value
-		target_Q = self.critic_target(next_state, self.actor_target(next_state))
+		target_Q = self.critic_target(next_obs, self.actor_target(next_obs))
 		target_Q = reward + (1 - done) * self.gamma * target_Q.detach()
 
 		# Get current Q estimate
-		current_Q = self.critic(state, action)
+		current_Q = self.critic(obs, action)
 
 		# Compute critic loss
 		critic_loss = F.mse_loss(current_Q, target_Q)
@@ -53,7 +51,7 @@ class DDPG(BaseAgent):
 		self.critic_optimizer.step()
 
 		# Compute actor loss
-		actor_loss = -self.critic(state, self.actor(state)).mean()
+		actor_loss = -self.critic(obs, self.actor(obs)).mean()
 
 		# Optimize the actor
 		self.actor_optimizer.zero_grad()
@@ -93,7 +91,6 @@ class DDPG(BaseAgent):
 			batch = self.replay_buffer.sample(self.batch_size)
 			self.train(*batch)
 
-		# TODO: use logger to record online information
 		if done:
 			self.episode_end_handle(t)
 

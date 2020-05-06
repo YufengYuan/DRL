@@ -1,7 +1,6 @@
 import torch
 from common.models import StochasticActor, ValueCritic
 from torch import nn
-import gym
 from torch.optim import Adam
 import numpy as np
 from algs.base_agent import BaseAgent
@@ -13,7 +12,7 @@ class PPO(BaseAgent):
 
 	def __init__(self, env, lr=3e-4, batch_size=2048, num_minibatch=32, gamma=0.99,
 	             lam=0.95, vf_coef=1, ent_coef=0, clip_range=0.2, n_epochs=10, max_grad_norm=10,
-			     device=None, **network_kwargs):
+			     device=None):
 
 		super(PPO, self).__init__(env, device)
 

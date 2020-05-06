@@ -7,11 +7,15 @@ import numpy as np
 
 
 
-def mlp(sizes, activation, output_activation=nn.Identity):
+def mlp(sizes, activation, output_activation=None):
     layers = []
     for j in range(len(sizes) - 1):
         act = activation if j < len(sizes) - 2 else output_activation
-        layers += [nn.Linear(sizes[j], sizes[j + 1]), act()]
+        # Original setting is not compatible with torch_gpu 1.0.0
+        if act is not None:
+            layers += [nn.Linear(sizes[j], sizes[j + 1]), act()]
+        else:
+            layers += [nn.Linear(sizes[j], sizes[j + 1])]
     return nn.Sequential(*layers)
 
 
@@ -140,8 +144,8 @@ class SquashedGaussianActor(nn.Module):
             # of where it comes from, check out the original SAC paper (arXiv 1801.01290)
             # and look in appendix C. This is a more numerically-stable equivalent to Eq 21.
             # Try deriving it yourself as a (very difficult) exercise. :)
-            logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
-            logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=1)
+            logp_pi = pi_distribution.log_prob(pi_action).sum(dim=-1)
+            logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(dim=1)
             logp_pi.unsqueeze_(-1)
         else:
             logp_pi = None
@@ -151,7 +155,18 @@ class SquashedGaussianActor(nn.Module):
 
         return pi_action, logp_pi
 
-    def act(self, obs, deterministic=False):
+    def test(self, obs):
+        net_out = self.net(obs)
+        mu = self.mu(net_out)
+        log_std = self.log_std(net_out)
+        log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
+        std = torch.exp(log_std)
+        return mu, std
+
+    def act(self, obs, deterministic=False, with_logprob=False):
         with torch.no_grad():
-            a, _ = self.forward(obs, deterministic, False)
-            return a.cpu().data.numpy().flatten()
+            a, logprob = self.forward(obs, deterministic, with_logprob)
+            if with_logprob:
+                return a.cpu().data.numpy().flatten(), logprob.cpu().data.numpy().flatten()
+            else:
+                return a.cpu().data.numpy().flatten()
