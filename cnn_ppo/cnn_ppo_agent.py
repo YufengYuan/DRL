@@ -170,6 +170,7 @@ class PPO:
 				obs = env.reset()
 				self.ep_returns.append(ep_return)
 				self.ep_lengths.append(ep_length)
+				print(f'Episode return: {self.ep_returns[-1]}')
 				ep_return, ep_length = 0, 0
 		return self.ep_returns#, self.ep_lengths
 
@@ -182,6 +183,8 @@ if __name__ == '__main__':
 		print('Fail to import pybullet_envs')
 	import envs
 	env = gym.make('VisualReacherBulletEnv-v0')
+	env.seed(0)
 	obs_dim, act_dim = env.observation_space.shape[0], env.action_space.shape[0]
 	agent = PPO(obs_dim, act_dim)
-	agent.run(env, int(1e6))
+	result = agent.run(env, int(1e6))
+	np.save('result', result)

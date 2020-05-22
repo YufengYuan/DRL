@@ -8,7 +8,11 @@ saved_models/
 pre_trained_cnn
 *.sh
 plot_rl_project.py
-archived/
 algs/sac_extra.py
-main_extra.py
+algs/cnn_ppo.py
 common/replay_buffer_extra.py
+algs/_*
+algs/sac.py
+algs/td4.py
+algs/td5.py
+algs/td6.py

@@ -73,6 +73,9 @@ class DeterministicActor(nn.Module):
         out = self.net(obs)
         return self.act_limit * torch.tanh(out)
 
+    def unnormlized_action(self, obs):
+        return self.net(obs)
+
     def act(self, obs):
         out = self.net(obs)
         action = self.act_limit * torch.tanh(out)
@@ -112,7 +115,7 @@ class QvalueCritic(nn.Module):
         return q
 
 LOG_STD_MAX = 2
-LOG_STD_MIN = -20
+LOG_STD_MIN = -10
 
 class SquashedGaussianActor(nn.Module):
 
@@ -123,13 +126,32 @@ class SquashedGaussianActor(nn.Module):
         self.log_std = nn.Linear(h_dim[-1], act_dim)
         self.act_limit = act_limit
 
+    def mu_(self, obs):
+        net_out = self.net(obs)
+        mu = self.mu(net_out).detach()
+        return mu
+
+    def logprob(self, obs, pi_action):
+        net_out = self.net(obs)
+        mu = self.mu(net_out)
+        log_std = self.log_std(net_out)
+        log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
+        std = torch.exp(log_std)
+        print(torch.mean(std, dim=0))
+        # Pre-squash distribution and sample
+        pi_distribution = Normal(mu, std)
+        logp_pi = pi_distribution.log_prob(pi_action).sum(dim=-1)
+        logp_pi -= (2 * (np.log(2) - pi_action - F.softplus(-2 * pi_action))).sum(dim=1)
+        logp_pi.unsqueeze_(-1)
+        return logp_pi
+
     def forward(self, obs, deterministic=False, with_logprob=True):
         net_out = self.net(obs)
         mu = self.mu(net_out)
         log_std = self.log_std(net_out)
         log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
         std = torch.exp(log_std)
-
+        #print(torch.mean(std, dim=0))
         # Pre-squash distribution and sample
         pi_distribution = Normal(mu, std)
         if deterministic:
@@ -155,13 +177,53 @@ class SquashedGaussianActor(nn.Module):
 
         return pi_action, logp_pi
 
-    def test(self, obs):
-        net_out = self.net(obs)
-        mu = self.mu(net_out)
-        log_std = self.log_std(net_out)
+    def act(self, obs, deterministic=False, with_logprob=False):
+        with torch.no_grad():
+            a, logprob = self.forward(obs, deterministic, with_logprob)
+            if with_logprob:
+                return a.cpu().data.numpy().flatten(), logprob.cpu().data.numpy().flatten()
+            else:
+                return a.cpu().data.numpy().flatten()
+
+
+class SquashedGaussianActor2(nn.Module):
+
+    def __init__(self, obs_dim, act_dim, act_limit=1, h_dim=(256, 256), activation=nn.ReLU):
+        super().__init__()
+        self.mu = mlp([obs_dim] + list(h_dim) + [act_dim], activation)
+        self.log_std = mlp([obs_dim] + list(h_dim) + [act_dim], activation)
+        self.act_limit = act_limit
+
+    def forward(self, obs, deterministic=False, with_logprob=True):
+        mu = self.mu(obs)
+        log_std = self.log_std(obs)
         log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
         std = torch.exp(log_std)
-        return mu, std
+        # print(torch.mean(std, dim=0))
+        # Pre-squash distribution and sample
+        pi_distribution = Normal(mu.detach(), std)
+        if deterministic:
+            # Only used for evaluating policy at test time.
+            pi_action = mu
+        else:
+            pi_action = pi_distribution.rsample()
+
+        if with_logprob:
+            # Compute logprob from Gaussian, and then apply correction for Tanh squashing.
+            # NOTE: The correction formula is a little bit magic. To get an understanding
+            # of where it comes from, check out the original SAC paper (arXiv 1801.01290)
+            # and look in appendix C. This is a more numerically-stable equivalent to Eq 21.
+            # Try deriving it yourself as a (very difficult) exercise. :)
+            logp_pi = pi_distribution.log_prob(pi_action).sum(dim=-1)
+            logp_pi -= (2 * (np.log(2) - pi_action - F.softplus(-2 * pi_action))).sum(dim=1)
+            logp_pi.unsqueeze_(-1)
+        else:
+            logp_pi = None
+
+        pi_action = torch.tanh(pi_action)
+        pi_action = self.act_limit * pi_action
+
+        return pi_action, logp_pi
 
     def act(self, obs, deterministic=False, with_logprob=False):
         with torch.no_grad():
@@ -170,3 +232,26 @@ class SquashedGaussianActor(nn.Module):
                 return a.cpu().data.numpy().flatten(), logprob.cpu().data.numpy().flatten()
             else:
                 return a.cpu().data.numpy().flatten()
+
+
+class Explorer(nn.Module):
+
+    def __init__(self, obs_dim, act_dim, act_limit=1, h_dim=(256,256), activation=nn.ReLU):
+        super().__init__()
+        self.net = mlp([obs_dim] + list(h_dim), activation, activation)
+        self.log_std = nn.Linear(h_dim[-1], act_dim)
+        self.act_limit = act_limit
+
+    def forward(self, obs, deterministic=False):
+        net_out = self.net(obs)
+        log_std = self.log_std(net_out)
+        log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
+        return log_std
+        #std = torch.exp(log_std)
+        # Pre-squash distribution and sample
+        #return std
+
+   # def act(self, obs, mu, deterministic=False):
+   #     with torch.no_grad():
+   #         a, _ = self.forward(obs, mu, deterministic)
+   #         return a.cpu().data.numpy().flatten()

@@ -73,6 +73,9 @@ class TD3(BaseAgent):
 		# Delayed policy updates
 		if self.total_it % self.policy_freq == 0:
 
+			for param in self.critic.parameters():
+				param.requires_grad = False
+
 			# Compute actor losse
 			actor_loss = -self.critic.Q1(obs, cur_action).mean()
 
@@ -80,6 +83,9 @@ class TD3(BaseAgent):
 			self.actor_optimizer.zero_grad()
 			actor_loss.backward()
 			self.actor_optimizer.step()
+
+			for param in self.critic.parameters():
+				param.requires_grad = True
 
 			# Update the frozen target models
 			for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):

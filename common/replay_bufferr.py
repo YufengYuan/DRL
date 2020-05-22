@@ -214,6 +214,16 @@ class ReplayBuffer(object):
         idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]
         return self._encode_sample(idxes)
 
+    def random_sample(self, batch_size):
+        obses_t, actions = [], []
+        idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]
+        for i in idxes:
+            data = self._storage[i]
+            obs_t, action, reward, obs_tp1, done = data
+            obses_t.append(np.array(obs_t, copy=False))
+            actions.append(np.array(action, copy=False))
+        return torch.tensor(np.array(obses_t), dtype=torch.float32, device=self.device), \
+               torch.tensor(np.array(actions), dtype=torch.float32, device=self.device), \
 
 class PrioritizedReplayBuffer(ReplayBuffer):
     def __init__(self, size, alpha=1):
@@ -252,10 +262,10 @@ class PrioritizedReplayBuffer(ReplayBuffer):
     def _sample_proportional(self, batch_size):
         res = []
         p_total = self._it_sum.sum(0, len(self._storage) - 1)
-        #every_range_len = p_total / batch_size
+        every_range_len = p_total / batch_size
         for i in range(batch_size):
-            #mass = random.random() * every_range_len + i * every_range_len
-            mass = random.random() * p_total
+            mass = random.random() * every_range_len + i * every_range_len
+            #mass = random.random() * p_total
             idx = self._it_sum.find_prefixsum_idx(mass)
             res.append(idx)
         return res
@@ -310,7 +320,7 @@ class PrioritizedReplayBuffer(ReplayBuffer):
         encoded_sample = self._encode_sample(idxes)
         return tuple(list(encoded_sample) + [idxes])
 
-    def update_priorities(self, idxes, priorities, alpha):
+    def update_priorities(self, idxes, priorities, alpha=1):
         """Update priorities of sampled transitions.
         sets priority of transition at index idxes[i] in buffer
         to priorities[i].

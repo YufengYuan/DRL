@@ -80,9 +80,10 @@ class VisualReacher(gym.core.Wrapper):
 		assert self.image.shape[0] % self.sampling_interval == 0, 'Sampling interval not aligned with image size!'
 		self.image = self.image[::self.sampling_interval, ::self.sampling_interval, :]
 		# Convert uint8 to float32
-		self.image = self.image.astype(np.float32)
+		#print(self.image)
+		#self.image = self.image.astype(np.float32)
 		# Normalize pixel values
-		self.image /= 255.
+		#self.image /= 255.
 		#print(self.screenshot)
 
 
