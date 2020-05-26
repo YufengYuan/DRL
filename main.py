@@ -22,12 +22,9 @@ if __name__ == '__main__':
 	parser.add_argument("--total_timesteps", default=int(1e6), type=int)  # Total timesteps t5o train the agent
 	parser.add_argument("--eval_freq", default=5e3, type=int)  # Evaluation frequency of the agent
 	parser.add_argument("--save_model", action="store_true")  # Save model and optimizer or not
-	parser.add_argument("--load_model", default="")  # Model load file name, "" doesn't load, "default" uses file_name
+	parser.add_argument("--load_model", action="store_true")  # Load the saved model and optimizer or not
 	parser.add_argument("--device", default="")  # Specify the device for training
 	parser.add_argument("--subfolder", default="")
-
-	# Arguments for specific algorithms
-	parser.add_argument("--alpha", default=0.5, type=float)
 
 	args = parser.parse_args()
 
@@ -40,21 +37,18 @@ if __name__ == '__main__':
 
 	if args.alg == 'PPO':
 		from algs.ppo import PPO as Agent
-	elif args.alg =='CNN_PPO':
-		from algs.cnn_ppo import PPO as Agent
 	elif args.alg == 'DDPG':
 		from algs.ddpg import DDPG as Agent
 	elif args.alg == 'TD3':
 		from algs.td3 import TD3 as Agent
 	elif args.alg == 'SAC':
 		from algs.sac import SAC as Agent
-		kwargs['alpha'] = args.alpha
-	elif args.alg == 'TD4':
-		from algs.td4 import TD3 as Agent
-	elif args.alg == 'TD5':
-		from algs.td5 import TD3 as Agent
-	elif args.alg == 'TD6':
-		from algs.td6 import TD3 as Agent
+	#elif args.alg == 'TD4':
+	#	from algs.td4 import TD3 as Agent
+	#elif args.alg == 'TD5':
+	#	from algs.td5 import TD3 as Agent
+	#elif args.alg == 'TD6':
+	#	from algs.td6 import TD3 as Agent
 	else:
 		raise NotImplementedError(f'Algorithm {args.alg} is not implemented nor proposed yet.')
 
@@ -85,11 +79,13 @@ if __name__ == '__main__':
 
 	# Create the agent
 	agent = Agent(env, **kwargs)
+	if args.load_model:
+		agent.save(f"./models/{result_folder}/{file_name}")
 
 	# Main loop
-	for t in range(1, args.total_timesteps+1):
+	for t in range(args.total_timesteps):
 		agent.step(t)
-		if t % args.eval_freq == 0 or t == 1:
+		if t % args.eval_freq == 0:
 			#eval = agent.evaluate(eval_env)
 			#evaluation.append(eval)
 			#continue
@@ -98,5 +94,5 @@ if __name__ == '__main__':
 		#if t % 5050 == 0 and t > 4999:
 		#	agent.log(t)
 	if args.save_model:
-		agent.save(file_name)
+		agent.save(f"./models/{result_folder}/{file_name}")
 

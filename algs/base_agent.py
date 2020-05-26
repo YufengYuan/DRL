@@ -17,7 +17,7 @@ class BaseAgent:
 
 		self.obs = self.env.reset()
 
-		self.logger = EpochLogger()
+		#self.logger = EpochLogger()
 
 		self.episode_timesteps = 0
 		self.episode_reward = 0
@@ -36,8 +36,8 @@ class BaseAgent:
 		# TODO: add logger to log useful information
 		print(
 			f"Total T: {t + 1} Episode Num: {self.episode_num + 1} Episode T: {self.episode_timesteps} Reward: {self.episode_reward:.3f}")
-		self.logger.store(EpisodeReturn=self.episode_reward)
-		self.logger.store(EpisodeLength=self.episode_timesteps)
+		#self.logger.store(EpisodeReturn=self.episode_reward)
+		#self.logger.store(EpisodeLength=self.episode_timesteps)
 
 		# Reset environment
 		self.obs = self.env.reset()
@@ -55,21 +55,14 @@ class BaseAgent:
 				obs, reward, done, _ = eval_env.step(action)
 				avg_reward += reward
 				avg_length += 1
-			self.logger.store(EvalEpisodeReturn=avg_reward)
-			self.logger.store(EvalEpisodeLength=avg_length)
+			#self.logger.store(EvalEpisodeReturn=avg_reward)
+			#self.logger.store(EvalEpisodeLength=avg_length)
 		avg_reward /= eval_episodes
 		avg_length /= eval_episodes
 		print("---------------------------------------")
 		print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f} length: {avg_length:.3f}")
 		print("---------------------------------------")
 		return avg_reward
-
-
-
-
-
-
-
 
 	def save(self, filename):
 		if hasattr(self, 'critic'):

@@ -12,7 +12,6 @@ algs/sac_extra.py
 algs/cnn_ppo.py
 common/replay_buffer_extra.py
 algs/_*
-algs/sac.py
 algs/td4.py
 algs/td5.py
 algs/td6.py
