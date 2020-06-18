@@ -5,6 +5,7 @@ import torch
 import numpy as np
 import copy
 import envs
+from envs.dm_env import DMCBaseEnv
 from common.utils import evaluate_agent
 try:
 	import pybullet_envs
@@ -15,7 +16,7 @@ except ImportError:
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
-	#parser.add_argument("--network", default='mlp') # Network architecture to use (mlp, linear, CNN)
+	parser.add_argument("--h_dim", default='(256, 256)') # Network architecture to use (mlp, linear, CNN)
 	parser.add_argument("--alg", default="PPO")  # Algorithms name (PPO, TD3, DDPG, SAC)
 	parser.add_argument("--env", default="HopperBulletEnv-v0")  # OpenAI gym environment name
 	parser.add_argument("--seed", default=9, type=int)  # Seeds used for Gym, PyTorch and Numpy
@@ -32,7 +33,8 @@ if __name__ == '__main__':
 	file_name = f"{args.alg}_{args.env}_{args.seed}"
 
 	kwargs = {
-		'device': args.device
+		'device': None if args.device == "" else args.device,
+		#'h_dim': eval(args.h_dim)
 	}
 
 	if args.alg == 'PPO':
@@ -43,12 +45,8 @@ if __name__ == '__main__':
 		from algs.td3 import TD3 as Agent
 	elif args.alg == 'SAC':
 		from algs.sac import SAC as Agent
-	#elif args.alg == 'TD4':
-	#	from algs.td4 import TD3 as Agent
-	#elif args.alg == 'TD5':
-	#	from algs.td5 import TD3 as Agent
-	#elif args.alg == 'TD6':
-	#	from algs.td6 import TD3 as Agent
+	elif args.alg == 'SACA':
+		from algs.saca import SAC as Agent
 	else:
 		raise NotImplementedError(f'Algorithm {args.alg} is not implemented nor proposed yet.')
 
@@ -65,8 +63,10 @@ if __name__ == '__main__':
 		os.makedirs(f"./models/{result_folder}")
 
 	# Create env and evaluation env
-	env = gym.make(args.env)
-	eval_env = copy.deepcopy(env)
+	#env = gym.make(args.env)
+	#eval_env = copy.deepcopy(env)
+	env = DMCBaseEnv('reacher', 'easy')
+	eval_env = DMCBaseEnv('reacher', 'hard')
 
 	# Set seeds
 	env.seed(args.seed)

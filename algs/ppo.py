@@ -63,8 +63,8 @@ class PPO(BaseAgent):
 				policy_loss = torch.mean(torch.max(policy_loss, policy_loss_clipped))
 
 				# Compute entropy loss
-				entropy_loss = -torch.mean(cur_pi.entropy())
-				policy_loss += self.ent_coef * entropy_loss
+				#entropy_loss = -torch.mean(cur_pi.entropy())
+				#policy_loss += self.ent_coef * entropy_loss
 
 				# Update the critic
 				self.critic_optimizer.zero_grad()

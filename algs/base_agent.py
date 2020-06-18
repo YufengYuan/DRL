@@ -4,21 +4,18 @@ from common.logger import EpochLogger
 
 class BaseAgent:
 
-	def __init__(self, env, device=''):
+	def __init__(self, env, device=None):
 
 		self.obs_dim = env.observation_space.shape[0]
 		self.act_dim = env.action_space.shape[0]
 		self.act_limit = float(env.action_space.high[0])
 		self.env = env
-		if device is '' or device is None:
+		if device is None:
 			self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 		else:
 			self.device = torch.device(device)
 
 		self.obs = self.env.reset()
-
-		#self.logger = EpochLogger()
-
 		self.episode_timesteps = 0
 		self.episode_reward = 0
 		self.episode_num = 0
@@ -36,9 +33,6 @@ class BaseAgent:
 		# TODO: add logger to log useful information
 		print(
 			f"Total T: {t + 1} Episode Num: {self.episode_num + 1} Episode T: {self.episode_timesteps} Reward: {self.episode_reward:.3f}")
-		#self.logger.store(EpisodeReturn=self.episode_reward)
-		#self.logger.store(EpisodeLength=self.episode_timesteps)
-
 		# Reset environment
 		self.obs = self.env.reset()
 		self.episode_reward = 0
@@ -55,8 +49,6 @@ class BaseAgent:
 				obs, reward, done, _ = eval_env.step(action)
 				avg_reward += reward
 				avg_length += 1
-			#self.logger.store(EvalEpisodeReturn=avg_reward)
-			#self.logger.store(EvalEpisodeLength=avg_length)
 		avg_reward /= eval_episodes
 		avg_length /= eval_episodes
 		print("---------------------------------------")

@@ -1,5 +1,4 @@
 import numpy as np
-
 from pybullet_envs.gym_manipulator_envs import ReacherBulletEnv
 from pybullet_envs.robot_manipulators import Reacher
 from pybullet_envs.env_bases import MJCFBaseBulletEnv

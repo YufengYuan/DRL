@@ -9,15 +9,15 @@ class TD3(BaseAgent):
 
 	def __init__(self, env,lr=3e-4, gamma=0.99, tau=0.005, buffer_size=int(1e6),
 	             start_timesteps=5000, expl_noise=0.1, batch_size=256,
-	             policy_noise=0.2, noise_clip=0.5, policy_freq=2, device=None):
+	             policy_noise=0.2, noise_clip=0.5, policy_freq=2, device=None, **kwargs):
 
 		super(TD3, self).__init__(env, device)
 
-		self.actor = DeterministicActor(self.obs_dim, self.act_dim, self.act_limit).to(self.device)
+		self.actor = DeterministicActor(self.obs_dim, self.act_dim, self.act_limit, **kwargs).to(self.device)
 		self.actor_target = copy.deepcopy(self.actor)
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=lr)
 
-		self.critic = DoubleQvalueCritic(self.obs_dim, self.act_dim).to(self.device)
+		self.critic = DoubleQvalueCritic(self.obs_dim, self.act_dim, **kwargs).to(self.device)
 		self.critic_target = copy.deepcopy(self.critic)
 		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr)
 

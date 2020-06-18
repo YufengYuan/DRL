@@ -1,8 +1,11 @@
 from algs.base_agent import BaseAgent
 import torch
-from common import ReplayBuffer, SquashedGaussianActor, DoubleQvalueCritic
+from common import SquashedGaussianActor, DoubleQvalueCritic
 import copy
 import torch.nn.functional as F
+from common.models import ValueCritic
+from common.replay_buffer_extra import ReplayBuffer
+from collections import deque
 
 
 class SAC(BaseAgent):
@@ -18,6 +21,9 @@ class SAC(BaseAgent):
 		self.critic = DoubleQvalueCritic(self.obs_dim, self.act_dim).to(self.device)
 		self.critic_target = copy.deepcopy(self.critic)
 		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr)
+
+		self.auxor = ValueCritic(self.obs_dim).to(self.device)
+		self.auxor_optimizer = torch.optim.Adam(self.auxor.parameters(), lr=lr)
 
 		# Adjustable alpha
 		self.alpha = alpha
@@ -42,7 +48,7 @@ class SAC(BaseAgent):
 			target_Q1, target_Q2 = self.critic_target(next_obs, next_action)
 			target_Q = torch.min(target_Q1, target_Q2)
 			target_Q = reward + (1 - done) * self.gamma * (target_Q - self.alpha * logprob)
-			#target_Q = reward + (1 - done) * self.gamma * target_Q
+			target_Q += 0.1 * torch.sigmoid(self.auxor(next_obs))
 
 		# Get current Q estimates
 		current_Q1, current_Q2 = self.critic(obs, action)
@@ -82,6 +88,16 @@ class SAC(BaseAgent):
 		for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
 			target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 
+	def train_aux(self):
+		_, _, next_obs, _, _ = self.replay_buffer.balance_sample(self.batch_size)
+		pred = torch.sigmoid(self.auxor(next_obs))
+		target = torch.cat([torch.ones(self.batch_size//2, device=self.device), torch.zeros(self.batch_size//2, device=self.device)])
+		target.unsqueeze_(-1)
+		loss = -torch.mean(target * torch.log(pred) + (1 - target) * torch.log(1 - pred))
+		self.auxor_optimizer.zero_grad()
+		loss.backward()
+		self.auxor_optimizer.step()
+
 	def act(self, obs):
 		obs = torch.tensor(obs, dtype=torch.float32, device=self.device)
 		obs = obs.reshape(1, -1)
@@ -112,6 +128,8 @@ class SAC(BaseAgent):
 			for _ in range(self.train_freq):
 				batch = self.replay_buffer.sample(self.batch_size)
 				self.train(*batch)
+				if len(self.replay_buffer._reward_seq) > self.batch_size // 2:
+					self.train_aux()
 
 		if done:
 			self.episode_end_handle(t)
