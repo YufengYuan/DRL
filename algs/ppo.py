@@ -3,7 +3,7 @@ from common.models import StochasticActor, ValueCritic
 from torch import nn
 from torch.optim import Adam
 import numpy as np
-from algs.base_agent import BaseAgent
+from algs.base import BaseAgent
 from common import BatchBuffer
 import copy
 

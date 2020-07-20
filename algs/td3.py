@@ -1,4 +1,4 @@
-from algs.base_agent import BaseAgent
+from algs.base import BaseAgent
 import numpy as np
 import copy
 import torch

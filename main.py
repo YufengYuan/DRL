@@ -25,7 +25,6 @@ if __name__ == '__main__':
 	parser.add_argument("--save_model", action="store_true")  # Save model and optimizer or not
 	parser.add_argument("--load_model", action="store_true")  # Load the saved model and optimizer or not
 	parser.add_argument("--device", default="")  # Specify the device for training
-	parser.add_argument("--subfolder", default="")
 
 	args = parser.parse_args()
 
@@ -45,17 +44,15 @@ if __name__ == '__main__':
 		from algs.td3 import TD3 as Agent
 	elif args.alg == 'SAC':
 		from algs.sac import SAC as Agent
-	elif args.alg == 'SACA':
-		from algs.saca import SAC as Agent
 	else:
-		raise NotImplementedError(f'Algorithm {args.alg} is not implemented nor proposed yet.')
+		raise NotImplementedError(f'Algorithm {args.alg} is not implemented.')
 
 	file_name = f'{args.alg}_{args.env}_{args.seed}'
 	print('----------------------------------------------------------')
 	print(f'Algorithm: {args.alg}, Env: {args.env}, Seed: {args.seed}')
 	print('----------------------------------------------------------')
 
-	result_folder = str(args.alg) + str(args.subfolder)
+	result_folder = str(args.alg)# + str(args.subfolder)
 	if not os.path.exists(f"./results/{result_folder}"):
 		os.makedirs(f"./results/{result_folder}")
 
@@ -63,10 +60,11 @@ if __name__ == '__main__':
 		os.makedirs(f"./models/{result_folder}")
 
 	# Create env and evaluation env
-	#env = gym.make(args.env)
-	#eval_env = copy.deepcopy(env)
-	env = DMCBaseEnv('reacher', 'easy')
-	eval_env = DMCBaseEnv('reacher', 'hard')
+	env = gym.make(args.env)
+	eval_env = copy.deepcopy(env)
+	# TODO: include DMC suite
+	#env = DMCBaseEnv('reacher', 'easy')
+	#eval_env = DMCBaseEnv('reacher', 'hard')
 
 	# Set seeds
 	env.seed(args.seed)
@@ -86,13 +84,10 @@ if __name__ == '__main__':
 	for t in range(args.total_timesteps):
 		agent.step(t)
 		if t % args.eval_freq == 0:
-			#eval = agent.evaluate(eval_env)
-			#evaluation.append(eval)
-			#continue
-			evaluation.append(evaluate_agent(agent, eval_env))
+			eval = agent.evaluate(eval_env)
+			evaluation.append(eval)
+			#evaluation.append(evaluate_agent(agent, eval_env))
 			np.save(f"./results/{result_folder}/{file_name}", evaluation)
-		#if t % 5050 == 0 and t > 4999:
-		#	agent.log(t)
 	if args.save_model:
 		agent.save(f"./models/{result_folder}/{file_name}")
 

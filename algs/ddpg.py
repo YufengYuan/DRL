@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from common import DeterministicActor, QvalueCritic, ReplayBuffer
 import torch.nn.functional as F
-from algs.base_agent import BaseAgent
+from algs.base import BaseAgent
 
 
 class DDPG(BaseAgent):

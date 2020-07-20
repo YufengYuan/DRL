@@ -1,6 +1,6 @@
 import torch
 import copy
-from common.logger import EpochLogger
+#from common.logger import EpochLogger
 
 class BaseAgent:
 
@@ -11,7 +11,7 @@ class BaseAgent:
 		self.act_limit = float(env.action_space.high[0])
 		self.env = env
 		if device is None:
-			self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+			self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 		else:
 			self.device = torch.device(device)
 

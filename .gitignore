@@ -5,13 +5,5 @@ models/*
 *.npy
 test.py
 saved_models/
-pre_trained_cnn
 *.sh
 plot_rl_project.py
-algs/sac_extra.py
-algs/cnn_ppo.py
-common/replay_buffer_extra.py
-algs/_*
-algs/td4.py
-algs/td5.py
-algs/td6.py
