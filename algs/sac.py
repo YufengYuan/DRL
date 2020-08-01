@@ -23,7 +23,6 @@ class SAC(BaseAgent):
         # Adjustable alpha
         self.log_alpha = torch.tensor(np.log(init_temperature)).to(device)
         self.target_entropy = -torch.prod(torch.Tensor(self.env.action_space.shape).to(self.device)).item()
-        self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
         self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=1e-4, betas=(0.5, 0.999))
 
         self.replay_buffer = ReplayBuffer(buffer_size)
@@ -97,7 +96,6 @@ class SAC(BaseAgent):
         else:
             action = self.actor.act(torch.tensor(self.obs, dtype=torch.float32, device=self.device))
 
-
         # Perform action
         next_obs, reward, done, _ = self.env.step(action)
         #done_bool = float(done) if self.episode_timesteps < self.env._max_episode_steps else 0
@@ -107,15 +105,14 @@ class SAC(BaseAgent):
         self.obs = next_obs
         self.episode_reward += reward
 
-        # Train agent after collecting sufficient data
-        if t > self.start_timesteps:
-            batch = self.replay_buffer.sample(self.batch_size)
-            self.train(*batch)
-        # Extra training iterations when first reached the 'start_timestep'
+        # Train agent after collecting sufficient data, extra training iterations added when first reached start_timesteps
         if t == self.start_timesteps:
             for _ in range(self.start_timesteps):
                 batch = self.replay_buffer.sample(self.batch_size)
                 self.train(*batch)
+        elif t > self.start_timesteps:
+            batch = self.replay_buffer.sample(self.batch_size)
+            self.train(*batch)
 
         if done:
             self.episode_end_handle(t)

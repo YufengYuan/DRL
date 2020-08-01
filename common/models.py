@@ -98,7 +98,7 @@ class QvalueCritic(nn.Module):
         self.net = mlp([obs_dim + act_dim] + list(h_dim) + [1], activation)
 
     def forward(self, obs, action):
-        sa = torch.cat([obs, action], dim=1)
+        sa = torch.cat([obs, action], dim=-1)
         q = self.net(sa)
         return q
 

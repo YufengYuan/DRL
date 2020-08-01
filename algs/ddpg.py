@@ -7,8 +7,8 @@ from algs.base import BaseAgent
 
 
 class DDPG(BaseAgent):
-	def __init__(self, env, lr=3e-4, gamma=0.99, tau=0.005, buffer_size=int(1e6),
-	             start_timesteps=5000, expl_noise=0.1, batch_size=256,
+	def __init__(self, env, lr=1e-3, gamma=0.99, tau=0.005, buffer_size=int(1e6),
+	             start_timesteps=1000, expl_noise=0.1, batch_size=256,
 				 device=None):
 
 		super(DDPG, self).__init__(env, device)
@@ -80,7 +80,7 @@ class DDPG(BaseAgent):
 
 		# Perform action
 		next_obs, reward, done, _ = self.env.step(action)
-		done_bool = float(done) if self.episode_timesteps < self.env._max_episode_steps else 0
+		done_bool = float(done)# if self.episode_timesteps < self.env._max_episode_steps else 0
 		# Store data in replay buffer
 		self.replay_buffer.add(copy.deepcopy(self.obs), action, next_obs, reward, done_bool)
 		self.obs = next_obs

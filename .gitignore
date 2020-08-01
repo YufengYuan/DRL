@@ -6,4 +6,4 @@ models/*
 test.py
 saved_models/
 *.sh
-plot_rl_project.py
+experimental/

@@ -5,8 +5,9 @@ import torch
 import numpy as np
 import copy
 import envs
-from envs.dm_env import DMCBaseEnv
-from common.utils import evaluate_agent
+from envs.env_builder import make_env
+
+
 try:
 	import pybullet_envs
 except ImportError:
@@ -44,6 +45,9 @@ if __name__ == '__main__':
 		from algs.td3 import TD3 as Agent
 	elif args.alg == 'SAC':
 		from algs.sac import SAC as Agent
+	# Temparily for experimental code
+	elif args.alg == 'EXP':
+		from experimental.sac import SAC as Agent
 	else:
 		raise NotImplementedError(f'Algorithm {args.alg} is not implemented.')
 
@@ -52,19 +56,17 @@ if __name__ == '__main__':
 	print(f'Algorithm: {args.alg}, Env: {args.env}, Seed: {args.seed}')
 	print('----------------------------------------------------------')
 
-	result_folder = str(args.alg)# + str(args.subfolder)
-	if not os.path.exists(f"./results/{result_folder}"):
-		os.makedirs(f"./results/{result_folder}")
+	if not os.path.exists(f"./results/"):
+		os.makedirs(f"./results/")
 
-	if args.save_model and not os.path.exists(f"./models/{result_folder}"):
-		os.makedirs(f"./models/{result_folder}")
+	if args.save_model and not os.path.exists(f"./models/"):
+		os.makedirs(f"./models/")
 
 	# Create env and evaluation env
-	env = gym.make(args.env)
-	eval_env = copy.deepcopy(env)
-	# TODO: include DMC suite
-	#env = DMCBaseEnv('reacher', 'easy')
-	#eval_env = DMCBaseEnv('reacher', 'hard')
+	#env = gym.make(args.env)
+	#eval_env = copy.deepcopy(env)
+	env = make_env(args.env)
+	eval_env = make_env(args.env)
 
 	# Set seeds
 	env.seed(args.seed)
@@ -78,7 +80,7 @@ if __name__ == '__main__':
 	# Create the agent
 	agent = Agent(env, **kwargs)
 	if args.load_model:
-		agent.save(f"./models/{result_folder}/{file_name}")
+		agent.save(f"./models/{file_name}")
 
 	# Main loop
 	for t in range(args.total_timesteps):
@@ -87,7 +89,7 @@ if __name__ == '__main__':
 			eval = agent.evaluate(eval_env)
 			evaluation.append(eval)
 			#evaluation.append(evaluate_agent(agent, eval_env))
-			np.save(f"./results/{result_folder}/{file_name}", evaluation)
+			np.save(f"./results/{file_name}", evaluation)
 	if args.save_model:
-		agent.save(f"./models/{result_folder}/{file_name}")
+		agent.save(f"./models/{file_name}")
 
