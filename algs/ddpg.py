@@ -3,12 +3,12 @@ import numpy as np
 import torch
 from common import DeterministicActor, QvalueCritic, ReplayBuffer
 import torch.nn.functional as F
-from algs.base_agent import BaseAgent
+from algs.base import BaseAgent
 
 
 class DDPG(BaseAgent):
-	def __init__(self, env, lr=3e-4, gamma=0.99, tau=0.005, buffer_size=int(1e6),
-	             start_timesteps=5000, expl_noise=0.1, batch_size=256,
+	def __init__(self, env, lr=1e-3, gamma=0.99, tau=0.005, buffer_size=int(1e6),
+	             start_timesteps=1000, expl_noise=0.1, batch_size=256,
 				 device=None):
 
 		super(DDPG, self).__init__(env, device)
@@ -21,7 +21,7 @@ class DDPG(BaseAgent):
 		self.critic_target = copy.deepcopy(self.critic)
 		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr)
 
-		self.replay_buffer = ReplayBuffer(buffer_size)
+		self.replay_buffer = ReplayBuffer(self.obs_dim, self.act_dim, buffer_size)
 
 		self.start_timesteps = start_timesteps
 		self.expl_noise = expl_noise
@@ -34,7 +34,10 @@ class DDPG(BaseAgent):
 		obs = torch.tensor(obs, dtype=torch.float32, device=self.device)
 		return self.actor(obs).cpu().data.numpy().flatten()
 
-	def train(self, obs, action, next_obs, reward, done):
+	def train(self):
+
+		obs, action, reward, next_obs, done = self.replay_buffer.sample(self.batch_size)
+
 		# Compute the target Q value
 		target_Q = self.critic_target(next_obs, self.actor_target(next_obs))
 		target_Q = reward + (1 - done) * self.gamma * target_Q.detach()
@@ -80,17 +83,15 @@ class DDPG(BaseAgent):
 
 		# Perform action
 		next_obs, reward, done, _ = self.env.step(action)
-		done_bool = float(done) if self.episode_timesteps < self.env._max_episode_steps else 0
+		done_bool = float(done)# if self.episode_timesteps < self.env._max_episode_steps else 0
 		# Store data in replay buffer
-		self.replay_buffer.add(copy.deepcopy(self.obs), action, next_obs, reward, done_bool)
+		self.replay_buffer.add(copy.deepcopy(self.obs), action, reward, next_obs, done_bool)
 		self.obs = next_obs
 
 		self.episode_reward += reward
 		# Train agent after collecting sufficient data
 		if t > self.start_timesteps:
-			batch = self.replay_buffer.sample(self.batch_size)
-			self.train(*batch)
-
+			self.train()
 		if done:
 			self.episode_end_handle(t)
 
