@@ -177,7 +177,11 @@ class DMCWrapper(core.Env):
 action_repeat_dict = {
 	'cartpole@swingup': 8,
 	'reacher@easy': 4,
+<<<<<<< HEAD
 	'cheetah@run': 1,
+=======
+	'cheetah@run': 4,
+>>>>>>> 1add20232aa895ad3c57ef6e5facaccef5d39bdf
 	'finger@spin': 2,
 	'ball_in_cup@catch': 4,
 	'walker@walk': 2

@@ -1,5 +1,9 @@
 import torch
 import copy
+<<<<<<< HEAD:algs/base.py
+=======
+#from common.logger import EpochLogger
+>>>>>>> 1add20232aa895ad3c57ef6e5facaccef5d39bdf:algs/base.py
 
 class BaseAgent:
 

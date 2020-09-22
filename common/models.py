@@ -61,10 +61,14 @@ class DeterministicActor(nn.Module):
 
     def forward(self, obs, tanh=True):
         out = self.net(obs)
+<<<<<<< HEAD
         if tanh:
             return self.act_limit * torch.tanh(out)
         else:
             return out
+=======
+        return self.act_limit * torch.tanh(out)
+>>>>>>> 1add20232aa895ad3c57ef6e5facaccef5d39bdf
 
     def act(self, obs):
         out = self.net(obs)
@@ -137,6 +141,7 @@ class SquashedGaussianActor(nn.Module):
         log_std = self.log_std(net_out)
         log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
         std = torch.exp(log_std)
+<<<<<<< HEAD
         if use_numpy:
             return mu.cpu().data.numpy(), std.cpu().data.numpy()
         else:
@@ -148,6 +153,8 @@ class SquashedGaussianActor(nn.Module):
         log_std = self.log_std(net_out) if not detach else self.log_std(net_out.detach())
         log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
         std = torch.exp(log_std)
+=======
+>>>>>>> 1add20232aa895ad3c57ef6e5facaccef5d39bdf
         # Pre-squash distribution and sample
         pi_distribution = Normal(mu, std) if not detach else Normal(mu.detach(), std)
         if deterministic:

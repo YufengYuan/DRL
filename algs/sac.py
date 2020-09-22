@@ -21,11 +21,19 @@ class SAC(BaseAgent):
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr)
 
         # Adjustable alpha
+<<<<<<< HEAD
         self.log_alpha = torch.tensor(np.log(init_temperature), requires_grad=True, device=self.device)
         self.target_entropy = -torch.prod(torch.Tensor(self.env.action_space.shape).to(self.device)).item()
         self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=1e-4, betas=(0.5, 0.999))
 
         self.replay_buffer = ReplayBuffer(self.obs_dim, self.act_dim, buffer_size)
+=======
+        self.log_alpha = torch.tensor(np.log(init_temperature)).to(device)
+        self.target_entropy = -torch.prod(torch.Tensor(self.env.action_space.shape).to(self.device)).item()
+        self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=1e-4, betas=(0.5, 0.999))
+
+        self.replay_buffer = ReplayBuffer(buffer_size)
+>>>>>>> 1add20232aa895ad3c57ef6e5facaccef5d39bdf
         self.start_timesteps = start_timesteps
         self.tau = tau
         self.gamma = gamma
@@ -33,9 +41,13 @@ class SAC(BaseAgent):
         self.actor_train_freq = actor_train_freq
         self.batch_size = batch_size
 
+<<<<<<< HEAD
     def train(self):
 
         obs, action, reward, next_obs, done = self.replay_buffer.sample(self.batch_size)
+=======
+    def train(self, obs, action, next_obs, reward, done):
+>>>>>>> 1add20232aa895ad3c57ef6e5facaccef5d39bdf
 
         with torch.no_grad():
 
@@ -43,7 +55,11 @@ class SAC(BaseAgent):
             # Compute the target Q value
             target_Q1, target_Q2 = self.critic_target(next_obs, next_action)
             target_Q = torch.min(target_Q1, target_Q2)
+<<<<<<< HEAD
             target_Q = reward + (1 - done) * self.gamma * target_Q#x(target_Q - self.alpha * logprob)
+=======
+            target_Q = reward + (1 - done) * self.gamma * (target_Q - self.alpha * logprob)
+>>>>>>> 1add20232aa895ad3c57ef6e5facaccef5d39bdf
 
         # Get current Q estimates
         current_Q1, current_Q2 = self.critic(obs, action)
@@ -66,6 +82,10 @@ class SAC(BaseAgent):
         current_Q = torch.min(current_Q1, current_Q2)
 
         actor_loss = (self.alpha * logprob - current_Q).mean()
+<<<<<<< HEAD
+=======
+
+>>>>>>> 1add20232aa895ad3c57ef6e5facaccef5d39bdf
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
@@ -92,7 +112,11 @@ class SAC(BaseAgent):
         self.episode_timesteps += 1
 
         # Select action randomly or according to policy
+<<<<<<< HEAD
         if t < self.start_timesteps:
+=======
+        if t < self.start_timesteps:# or t > self.start_timesteps:
+>>>>>>> 1add20232aa895ad3c57ef6e5facaccef5d39bdf
             action = self.env.action_space.sample()
         else:
             action = self.actor.act(torch.tensor(self.obs, dtype=torch.float32, device=self.device))
@@ -102,16 +126,29 @@ class SAC(BaseAgent):
         #done_bool = float(done) if self.episode_timesteps < self.env._max_episode_steps else 0
         done_bool = float(done)# if self.episode_timesteps < self.env._max_episode_steps else 0
         # Store data in replay buffer
+<<<<<<< HEAD
         self.replay_buffer.add(copy.deepcopy(self.obs), action, reward, next_obs, done_bool)
+=======
+        self.replay_buffer.add(copy.deepcopy(self.obs), action, next_obs, reward, done_bool)
+>>>>>>> 1add20232aa895ad3c57ef6e5facaccef5d39bdf
         self.obs = next_obs
         self.episode_reward += reward
 
         # Train agent after collecting sufficient data, extra training iterations added when first reached start_timesteps
         if t == self.start_timesteps:
             for _ in range(self.start_timesteps):
+<<<<<<< HEAD
                 self.train()
         elif t > self.start_timesteps:
             self.train()
+=======
+                batch = self.replay_buffer.sample(self.batch_size)
+                self.train(*batch)
+        elif t > self.start_timesteps:
+            batch = self.replay_buffer.sample(self.batch_size)
+            self.train(*batch)
+
+>>>>>>> 1add20232aa895ad3c57ef6e5facaccef5d39bdf
         if done:
             self.episode_end_handle(t)
 

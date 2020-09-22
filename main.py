@@ -31,9 +31,13 @@ if __name__ == '__main__':
 	parser.add_argument("--eval_freq", default=5e3, type=int)  # Evaluation frequency of the agent
 	parser.add_argument("--save_model", action="store_true")  # Save model and optimizer or not
 	parser.add_argument("--load_model", action="store_true")  # Load the saved model and optimizer or not
+<<<<<<< HEAD
 	parser.add_argument("--save_data", default="")  # Specify the device for training
 	parser.add_argument("--load_data", default="")  # Specify the device for training
 
+=======
+	parser.add_argument("--device", default="")  # Specify the device for training
+>>>>>>> 1add20232aa895ad3c57ef6e5facaccef5d39bdf
 
 	args = parser.parse_args()
 
@@ -55,10 +59,15 @@ if __name__ == '__main__':
 	elif args.alg == 'SAC':
 		from algs.sac import SAC as Agent
 	# Temparily for experimental code
+<<<<<<< HEAD
 	elif args.alg == 'CQL':
 		from experimental.ctd3 import TD3 as Agent
 	elif args.alg == 'OFFLINE':
 		from experimental.offline import Custom as Agent
+=======
+	elif args.alg == 'EXP':
+		from experimental.sac import SAC as Agent
+>>>>>>> 1add20232aa895ad3c57ef6e5facaccef5d39bdf
 	else:
 		raise NotImplementedError(f'Algorithm {args.alg} is not implemented.')
 
@@ -92,6 +101,7 @@ if __name__ == '__main__':
 	agent = Agent(env, **kwargs)
 	if args.load_model:
 		agent.save(f"./models/{file_name}")
+<<<<<<< HEAD
 
 	# Test
 	if args.alg in ['CQL', 'OFFLINE', 'NAF']:
@@ -113,6 +123,8 @@ if __name__ == '__main__':
 			agent.replay_buffer.add(obs, action, reward, new_obs, done_bool)
 		print('Loaded buffer')
 		#agent.replay_buffer.load(f'datasets/{args.env}_{args.load_data}')
+=======
+>>>>>>> 1add20232aa895ad3c57ef6e5facaccef5d39bdf
 
 	# Main loop
 	for t in range(args.total_timesteps):
@@ -122,10 +134,15 @@ if __name__ == '__main__':
 			evaluation.append(eval)
 			#evaluation.append(evaluate_agent(agent, eval_env))
 			np.save(f"./results/{file_name}", evaluation)
+<<<<<<< HEAD
 	if args.save_data:
 		agent.save_buffer(f"./datasets/{args.env}_{args.save_data}")
 
 	if args.save_model:
 		agent.save(f"./models/{file_name}")
 
+=======
+	if args.save_model:
+		agent.save(f"./models/{file_name}")
+>>>>>>> 1add20232aa895ad3c57ef6e5facaccef5d39bdf
 
